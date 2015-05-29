@@ -804,13 +804,8 @@ dojo.declare("dotcms.dijit.workflows.ActionClassAdmin", null, {
 	},
 
 	addToActionClassesArray: function ( id, myName){
-
-		var entry = {id:id,name:myName};
-		this.actionClasses[this.actionClasses.length] =entry;
-
+		this.actionClasses.push({id:id,name:myName});
 	},
-
-
 
 	addActionClass : function ( clazz, myName){
 		var actionId = dojo.byId("actionId").value;
@@ -880,20 +875,22 @@ dojo.declare("dotcms.dijit.workflows.ActionClassAdmin", null, {
 		return;
 	},
 
-
-	removeFromActionClasses: function (id){
-		var x=0;
-		var newActionlets = new Array();
-		for(i=0;i < this.actionClasses.length;i++){
-			if(id != this.actionClasses[i].id){
-				newActionlets[x] = this.actionClasses[i];
-				x++;
+	removeFromActionClasses: function (id) {
+		for(i=0; i<this.actionClasses.length; i++) {
+			if(id == this.actionClasses[i].id) {
+				var deletedActionClass = this.actionClasses[i];
+				this.actionClasses.splice(i, 1);
+				return deletedActionClass;
 			}
-
 		}
-		this.actionClasses= newActionlets;
-		this.refreshActionClasses();
-
+		return null;
+	},
+	
+	moveFromActionClasses: function (actionClassId, newOrder) {
+		if(this.actionClasses.length > 1) {
+			var deletedActionClass = actionClassAdmin.removeFromActionClasses(actionClassId);
+			this.actionClasses.splice(newOrder, 0, deletedActionClass);
+		}
 	},
 
 	refreshActionClasses : function (){
@@ -921,7 +918,7 @@ dojo.declare("dotcms.dijit.workflows.ActionClassAdmin", null, {
 			x = x + this.actionClasses[i].id + ",";
 			tr = dojo.create("tr", {className:"dojoDndItem", id:"myRow" +  this.actionClasses[i].id}, tbody);
 			dojo.addClass(tr, "dndMyActionClasses");
-			dojo.create("td", { innerHTML: "<span class='deleteIcon'></span>",className:"wfXBox", onClick:"actionClassAdmin.deleteActionClass('" + this.actionClasses[i].id +"');actionClassAdmin.refreshActionClasses()" }, tr);
+			dojo.create("td", { innerHTML: "<span class='deleteIcon'></span>",className:"wfXBox", onClick:"actionClassAdmin.deleteActionClass('" + this.actionClasses[i].id +"');" }, tr);
 			dojo.create("td", { innerHTML: this.actionClasses[i].name, onClick:"actionClassAdmin.manageParams('" + this.actionClasses[i].id +"');", className:"showPointer" }, tr);
 
 		}
@@ -930,12 +927,14 @@ dojo.declare("dotcms.dijit.workflows.ActionClassAdmin", null, {
 			tr = dojo.create("tr", null, tbody);
 			dojo.create("td", { colSpan: 2, className:"wfnoSubActions", innerHTML:"<%=LanguageUtil.get(pageContext, "No-Sub-Actions-Configured")%>" }, tr);
 		}
-
-
-
-		var c1 = new dojo.dnd.Container(dojo.byId("actionletsTbl"));
+		
+		// ONLY add one handler, otherwise it will keep adding handlers for "onDrop"
 		var myDnD = new dojo.dnd.Source("actionletsTbl");
-		this.dndHandle = dojo.connect(myDnD, "onDndDrop", actionClassAdmin.reorderActionClasses);
+		if (this.dndHandle) {
+			// Remove older handler event for "onDrop"
+			dojo.disconnect(this.dndHandle);	
+		}
+		this.dndHandle = dojo.connect(myDnD, "onDrop", actionClassAdmin.reorderActionClasses);
 	},
 
 
@@ -964,8 +963,9 @@ dojo.declare("dotcms.dijit.workflows.ActionClassAdmin", null, {
 							showDotCMSSystemMessage(dataOrError, true);
 						}
 						else{
-							//showDotCMSSystemMessage("<%=LanguageUtil.get(pageContext, "Reordered")%>", false);
-
+							// We need to reorder the "Action Classes" array when an element is moved to a 
+							// different position
+							actionClassAdmin.moveFromActionClasses(nodes[0].id.replace("myRow", ""), order);
 						}
 					} else {
 						showDotCMSSystemMessage("<%=LanguageUtil.get(pageContext, "Unable-to-reorder")%>", true);
